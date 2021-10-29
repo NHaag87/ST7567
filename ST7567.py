@@ -1,6 +1,7 @@
 import RPi.GPIO as GPIO
 from time import sleep
 import spidev
+import numpy as np
 
 ST7567_DISPLAY_ON =                 0b10101111 # AF
 ST7567_DISPLAY_OFF =                0b10101110 # AE
@@ -77,9 +78,9 @@ class ST7567_LCD:
 
     def clear(self, set_zeros=True):
         if set_zeros:
-            self.show_image([0x00] * 1024)
+            self.show_image_raw([0x00] * 1024)
         else:
-            self.show_image([0xFF] * 1024)
+            self.show_image_raw([0xFF] * 1024)
     
     def invert(self, on=True):
         if on:
@@ -87,7 +88,7 @@ class ST7567_LCD:
         else:
             self.spi.xfer([ST7567_INVERSE_DISPLAY_OFF])
 
-    def show_image(self, image):
+    def show_image_raw(self, image):
         self.spi.xfer([ST7567_SET_START_LINE])
         for page in range(8):
             # Write page adress
@@ -100,9 +101,20 @@ class ST7567_LCD:
             self.spi.xfer2(image[page*128:(page+1)*128])
             GPIO.output(self.A0, 0)
     
+    def show_image_binary(self, image):
+        assert isinstance(image, np.ndarray), 'Image must be of type numpy ndarray'
+        assert image.dtype == np.bool, 'Data needs to be binary'
+        assert image.shape == (64, 128), 'Wrong image dimension. Must fit display dimensions (64 x 128)'
+        
+
+        # Convert binary image to raw and show
+        # Note: np.packbits does not offer the bitorder parameter --> use flip
+        self.show_image_raw(np.packbits(np.flip(image.T.reshape(128,8,8), axis=2), axis=2).T.flatten().tolist())
+    
     def set_contrast(self, contrast):
-        assert((contrast >= 0) and (contrast < 64), 'Contrast level should be in the range 0-63')
-        self.spi.xfer2([ST7567_SET_CONTRAST, contrast])
+        assert 0 <= contrast < 64, 'Contrast level should be in the range 0-63'
+        self.spi.xfer2([ST7567_SET_CONTRAST, 
+                        contrast])
 
     def _set_column_adress(self, addr):
         addr += 4
@@ -117,13 +129,22 @@ if __name__ == '__main__':
     print('Initializing display with default pinout (RST=24, A0=23)')
     LCD = ST7567_LCD()
     LCD.initialize()
-    sleep(2)
+    #sleep(2)
 
     print('Clearing display - zeros')
     LCD.clear()
     sleep(2)
     print('Clearing display - ones')
     LCD.clear(set_zeros=False)
+    sleep(2)
+
+    print('Showing binary image - horizontal line')
+    LCD.show_image_binary(np.array([0]*128*31 + [1]*128*2 + [0]*128*31).reshape(64, 128).astype(np.bool))
+    sleep(2)
+
+    print('Showing binary image - diagonal line')
+    diag_image = np.diag([1]*128)[0:64, :]
+    LCD.show_image_binary(diag_image.astype(np.bool))
     sleep(2)
 
     print('Display test image')
@@ -166,7 +187,7 @@ if __name__ == '__main__':
                   0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
                   0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF]
 
-    LCD.show_image(image=test_image)
+    LCD.show_image_raw(image=test_image)
     sleep(2)
 
     print('Inverting contrast ON')
