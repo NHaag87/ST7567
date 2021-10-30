@@ -71,6 +71,7 @@ class ST7567_LCD:
         self.max_speed_hz = max_speed_hz
         self.spi_port = spi_port
         self.spi_device = spi_device
+        self.is_initialized = False
 
     def __del__(self):
         self.close()
@@ -99,13 +100,15 @@ class ST7567_LCD:
         self.spi.xfer2([ST7567_BIAS_SELECT_1OVER9,
                         ST7567_SEG_DIRECTION_REVERSE,
                         ST7567_INVERSE_DISPLAY_OFF,
-                        ST7567_COM_DIRECTION_REVERSE,
+                        ST7567_COM_DIRECTION_NORMAL,
                         ST7567_SET_BOOSTER, 0,
                         ST7567_POWER_CONTROL | 0b111, # VB on, VR on, VF on
                         ST7567_REGULATION_RATIO | 0b110, # RR2 on, RR1 on, RR0 off
                         ST7567_SET_CONTRAST, 8,
                         ST7567_SET_START_LINE,
                         ST7567_DISPLAY_ON])
+
+        self.is_initialized = True
     
     def close(self):
         self.spi.xfer2([ST7567_DISPLAY_OFF,
@@ -114,20 +117,24 @@ class ST7567_LCD:
         self.spi.xfer2([ST7567_REGULATION_RATIO,
                         ST7567_POWER_CONTROL])
         self.spi.close()
+        self.is_initialized = False
 
     def clear(self, set_zeros=True):
+        assert self.is_initialized, 'Trying to clear uninitialized display'
         if set_zeros:
             self.show_image_raw([0x00] * 1024)
         else:
             self.show_image_raw([0xFF] * 1024)
     
     def invert(self, on=True):
+        assert self.is_initialized, 'Trying to invert uninitialized display'
         if on:
             self.spi.xfer([ST7567_INVERSE_DISPLAY_ON])
         else:
             self.spi.xfer([ST7567_INVERSE_DISPLAY_OFF])
 
     def show_image_raw(self, image):
+        assert self.is_initialized, 'Trying to show image on uninitialized display'
         self.spi.xfer([ST7567_SET_START_LINE])
         for page in range(8):
             # Write page adress
@@ -151,6 +158,7 @@ class ST7567_LCD:
         self.show_image_raw(np.packbits(np.flip(image.T.reshape(128,8,8), axis=2), axis=2).T.flatten().tolist())
     
     def set_contrast(self, contrast):
+        assert self.is_initialized, 'Trying to set contrast of uninitialized display'
         assert 0 <= contrast < 64, 'Contrast level should be in the range 0-63'
         self.spi.xfer2([ST7567_SET_CONTRAST, 
                         contrast])
