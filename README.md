@@ -24,9 +24,11 @@ TODO
 The module is equipped with an additional falcon based REST API that allows you to control the display remotely via HTTP GET/POST requests.
 
 The falcon based display server is started by running e.g.
+
     gunicorn --bind=<your-interface-ip> display_server:app
 
 You can request a list of available commands via a GET request to (just use your browser to visit)
+
     http://<your-interface-ip>:8000/help
 
 If you want to control the display remotely directly via python you can use the requests module. Example:
