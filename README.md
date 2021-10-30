@@ -21,4 +21,15 @@ Basically any 128x64 graphical dot display equipped with a ST7567 controller sho
 TODO
 
 ## REST API
-The module is equipped with an additional falcon based REST API that allows you to control the display remotely via HTTP GET/POST requests. 
+The module is equipped with an additional falcon based REST API that allows you to control the display remotely via HTTP GET/POST requests.
+
+The falcon based display server is started by running e.g.
+    gunicorn --bind=<your-interface-ip> display_server:app
+
+You can request a list of available commands via a GET request to (just use your browser to visit)
+    http://<your-interface-ip>:8000/help
+
+If you want to control the display remotely directly via python you can use the requests module. Example:
+
+    import requests
+    requests.post(f'{server_url}/set_image_binary', data = {'image':image.astype(np.int)})
